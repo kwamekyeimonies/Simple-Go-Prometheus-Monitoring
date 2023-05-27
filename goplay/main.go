@@ -1,34 +1,32 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/gorilla/mux"
+	"github.com/kwamekyeimonies/Simple-Go-Prometheus-Monitoring/middleware"
+	"github.com/kwamekyeimonies/Simple-Go-Prometheus-Monitoring/router"
+	"github.com/kwamekyeimonies/Simple-Go-Prometheus-Monitoring/service"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var (
-	opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "processed_ops_total",
-		Help: "The total number of processed events",
-	})
-)
-
-func RecordMetrics() {
-	go func() {
-		for {
-			opsProcessed.Inc()
-			time.Sleep(time.Second * 2)
-		}
-	}()
+func init() {
+	prometheus.Register(service.TotalRequests)
+	prometheus.Register(service.ResponseStatus)
+	prometheus.Register(service.HttpDuration)
 }
 
 func main() {
 
-	RecordMetrics()
+	server := mux.NewRouter()
 
-	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":9090", nil)
+	server.Use(middleware.PrometheusMiddleware)
+
+	fmt.Println("Serving requests on port 9090")
+
+	router.ServiceRouter(server)
+	router.PrometheusRouter(server)
+
+	http.ListenAndServe(":9090", server)
 }
